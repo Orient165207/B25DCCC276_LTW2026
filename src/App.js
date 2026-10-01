@@ -23,6 +23,7 @@ const StudentItem = ({ student, onDelete }) => {
 
 	return (
 		<tr>
+			<td className="student-id">{id}</td>
 			<td className="student-name">{name}</td>
 			<td><span className="class-code">{studentClass}</span></td>
 			<td className="score-cell"><span className="score-value">{score.toLocaleString('vi-VN', { maximumFractionDigits: 1 })}</span></td>
@@ -41,6 +42,7 @@ const StudentList = ({ students, onDelete }) => (
 		<table>
 			<thead>
 				<tr>
+					<th scope="col">Mã SV</th>
 					<th scope="col">Họ và tên</th>
 					<th scope="col">Lớp</th>
 					<th scope="col">Điểm</th>
@@ -53,7 +55,7 @@ const StudentList = ({ students, onDelete }) => (
 					<StudentItem key={student.id} student={student} onDelete={onDelete} />
 				)) : (
 					<tr>
-						<td className="empty-state" colSpan="5">Không có sinh viên phù hợp với sinh viên bạn đang tìm kiếm.</td>
+						<td className="empty-state" colSpan="6">Không có sinh viên phù hợp với sinh viên bạn đang tìm kiếm.</td>
 					</tr>
 				)}
 			</tbody>
@@ -97,7 +99,14 @@ const App = () => {
 
 		setStudents((currentStudents) => [
 			...currentStudents,
-			{ id: Date.now(), name: trimmedName, score: numericScore, class: trimmedClass },
+			{
+				id: currentStudents.length
+					? Math.max(...currentStudents.map(({ id: currentId }) => currentId)) + 1
+					: 1,
+				name: trimmedName,
+				score: numericScore,
+				class: trimmedClass,
+			},
 		]);
 		setName('');
 		setScore('');

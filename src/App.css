@@ -308,7 +308,7 @@ td:last-child {
 	padding-right: 22px;
 }
 
-th:nth-child(3),
+th:nth-child(4),
 .score-cell {
 	width: 92px;
 	text-align: center;
@@ -324,6 +324,11 @@ td {
 .student-name {
 	color: var(--ink);
 	font-weight: 600;
+}
+
+.student-id {
+	color: #89928e;
+	font-variant-numeric: tabular-nums;
 }
 
 .class-code {
