@@ -1,0 +1,44 @@
+[
+  {
+    "id": 1,
+    "name": "Bút bi Thiên Long",
+    "category": "Văn phòng phẩm",
+    "price": 5000,
+    "quantity": 20
+  },
+  {
+    "id": 2,
+    "name": "Vở kẻ ngang 200 trang",
+    "category": "Văn phòng phẩm",
+    "price": 12000,
+    "quantity": 3
+  },
+  {
+    "id": 3,
+    "name": "Giấy A4 Double A",
+    "category": "Văn phòng phẩm",
+    "price": 120000,
+    "quantity": 5
+  },
+  {
+    "id": 4,
+    "name": "Chuột không dây",
+    "category": "Điện tử",
+    "price": 250000,
+    "quantity": 4
+  },
+  {
+    "id": 5,
+    "name": "Tai nghe có dây",
+    "category": "Điện tử",
+    "price": 180000,
+    "quantity": 8
+  },
+  {
+    "id": 6,
+    "name": "Bình giữ nhiệt",
+    "category": "Gia dụng",
+    "price": 29000,
+    "quantity": 2
+  }
+]

@@ -1,243 +1,452 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
 import './App.css';
 
-const initialStudents = [
-	{ id: 1, name: 'Nguyễn Đình Hải', score: 8.7, class: '12A1' },
-	{ id: 2, name: 'Trần Bảo An', score: 4.5, class: '12A5' },
-	{ id: 3, name: 'Lê Khánh Linh', score: 7.2, class: '12A6' },
-	{ id: 4, name: 'Phạm Đức Minh', score: 9.1, class: '12A1' },
-];
+const CATEGORIES = ['Văn phòng phẩm', 'Điện tử', 'Gia dụng'];
 
-const filters = [
-	{ value: 'all', label: 'Tất cả' },
-    { value: 'outstanding', label: 'Xuất sắc · > 9' },
-	{ value: 'excellent', label: 'Giỏi · ≥ 8' },
-    { value: 'passed', label: 'Đạt · 5 - < 8' },
-	{ value: 'failed', label: 'Trượt · < 5' },
-];
+const formatCurrency = (amount) => `${amount.toLocaleString('vi-VN')} đ`;
 
-const StudentItem = ({ student, onDelete }) => {
-	const { id, name, score, class: studentClass } = student;
-	const result = score > 9 ? 'Xuất sắc' : score >= 8 ? 'Giỏi' : score < 5 ? 'Trượt' : 'Đạt';
-	const resultClass = score > 9 ? 'outstanding' : score >= 8 ? 'excellent' : score < 5 ? 'failed' : 'passed';
+const getRoute = (pathname) => {
+  if (pathname === '/') return { page: 'home' };
+  if (pathname === '/products') return { page: 'products' };
+  if (pathname === '/products/new') return { page: 'new' };
 
-	return (
-		<tr>
-			<td className="student-id">{id}</td>
-			<td className="student-name">{name}</td>
-			<td><span className="class-code">{studentClass}</span></td>
-			<td className="score-cell"><span className="score-value">{score.toLocaleString('vi-VN', { maximumFractionDigits: 1 })}</span></td>
-			<td><span className={`result-badge ${resultClass}`}>{result}</span></td>
-			<td className="action-cell">
-				<button className="delete-button" type="button" onClick={() => onDelete(id)} aria-label={`Xóa ${name}`}>
-					Xóa
-				</button>
-			</td>
-		</tr>
-	);
+  const detailMatch = pathname.match(/^\/products\/([^/]+)$/);
+  if (detailMatch) return { page: 'detail', id: detailMatch[1] };
+
+  return { page: 'not-found' };
 };
 
-const StudentList = ({ students, onDelete }) => (
-	<div className="table-wrap">
-		<table>
-			<thead>
-				<tr>
-					<th scope="col">Mã SV</th>
-					<th scope="col">Họ và tên</th>
-					<th scope="col">Lớp</th>
-					<th scope="col">Điểm</th>
-					<th scope="col">Xếp loại</th>
-					<th scope="col"><span className="visually-hidden">Thao tác</span></th>
-				</tr>
-			</thead>
-			<tbody>
-				{students.length > 0 ? students.map((student) => (
-					<StudentItem key={student.id} student={student} onDelete={onDelete} />
-				)) : (
-					<tr>
-						<td className="empty-state" colSpan="6">Không có sinh viên phù hợp với sinh viên bạn đang tìm kiếm.</td>
-					</tr>
-				)}
-			</tbody>
-		</table>
-	</div>
-);
+function App() {
+  const [route, setRoute] = useState(() => getRoute(window.location.pathname));
+  const [products, setProducts] = useState(null);
+  const [loadError, setLoadError] = useState(false);
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('Tất cả');
+  const [form, setForm] = useState({
+    name: '',
+    category: CATEGORIES[0],
+    price: '',
+    quantity: '',
+  });
+  const [formError, setFormError] = useState('');
 
-const App = () => {
-	const [students, setStudents] = useState(initialStudents);
-	const [filter, setFilter] = useState('all');
-	const [name, setName] = useState('');
-	const [score, setScore] = useState('');
-	const [studentClass, setStudentClass] = useState('');
-	const [error, setError] = useState('');
+  useEffect(() => {
+    const handlePopState = () => setRoute(getRoute(window.location.pathname));
+    window.history.replaceState(
+      { ...window.history.state, inventoryApp: true },
+      '',
+      window.location.href,
+    );
+    window.addEventListener('popstate', handlePopState);
 
-	const filteredStudents = students.filter(({ score: studentScore }) => {
-    if (filter === 'outstanding') return studentScore > 9;
-		if (filter === 'excellent') return studentScore >= 8;
-		if (filter === 'failed') return studentScore < 5;
-		if (filter === 'passed') return studentScore >= 5 && studentScore < 8;
-		return true;
-	});
-	const average = students.length
-		? students.reduce((total, student) => total + student.score, 0) / students.length
-		: 0;
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
-	const handleAdd = (event) => {
-		event.preventDefault();
-		const trimmedName = name.trim();
-		const trimmedClass = studentClass.trim();
-		const numericScore = Number(score);
+  useEffect(() => {
+    let active = true;
 
-		if (!trimmedName || !trimmedClass || score.trim() === '') {
-			setError('Vui lòng nhập đầy đủ họ tên, điểm số và lớp.');
-			return;
-		}
-		if (!Number.isFinite(numericScore) || numericScore < 0 || numericScore > 10) {
-			setError('Giới hạn điểm số từ 0 đến 10.');
-			return;
-		}
+    axios
+      .get('/data/products.json')
+      .then(({ data }) => {
+        if (!Array.isArray(data)) {
+          throw new Error('Dữ liệu sản phẩm không hợp lệ.');
+        }
+        if (active) setProducts(data);
+      })
+      .catch(() => {
+        if (active) setLoadError(true);
+      });
 
-		setStudents((currentStudents) => [
-			...currentStudents,
-			{
-				id: currentStudents.length
-					? Math.max(...currentStudents.map(({ id: currentId }) => currentId)) + 1
-					: 1,
-				name: trimmedName,
-				score: numericScore,
-				class: trimmedClass,
-			},
-		]);
-		setName('');
-		setScore('');
-		setStudentClass('');
-		setError('');
-	};
+    return () => {
+      active = false;
+    };
+  }, []);
 
-	const handleDelete = (studentId) => {
-		setStudents((currentStudents) => currentStudents.filter(({ id }) => id !== studentId));
-	};
+  const navigate = (pathname, replace = false) => {
+    const method = replace ? 'replaceState' : 'pushState';
+    window.history[method]({ inventoryApp: true }, '', pathname);
+    setRoute(getRoute(pathname));
+  };
 
-	return (
-		<main className="app-shell">
-			<header className="topbar">
-				<a className="brand" href="/" aria-label="Sổ điểm, trang chủ">
-					<span className="brand-mark" aria-hidden="true">S</span>
-					<span>Sổ điểm<span className="brand-period">.</span></span>
-				</a>
-				<span className="topbar-note">QUẢN LÝ HỌC TẬP</span>
-			</header>
+  const visibleProducts = useMemo(() => {
+    if (!products) return [];
+    const normalizedSearch = search.trim().toLocaleLowerCase('vi');
 
-			<div className="workspace">
-				<section className="page-heading">
-					<div>
-						<p className="eyebrow">NĂM HỌC 2025 — 2026 <span>·</span> HỌC KỲ I</p>
-						<h1>Bảng điểm sinh viên</h1>
-						<p className="page-subtitle">Theo dõi kết quả và quản lý danh sách lớp học.</p>
-					</div>
-					<div className="term-chip"><span className="live-dot" /> Đang cập nhật</div>
-				</section>
+    return products.filter((product) => {
+      const matchesName = product.name.toLocaleLowerCase('vi').includes(normalizedSearch);
+      const matchesCategory =
+        categoryFilter === 'Tất cả' || product.category === categoryFilter;
+      return matchesName && matchesCategory;
+    });
+  }, [products, search, categoryFilter]);
 
-				<section className="summary" aria-label="Thống kê lớp học">
-					<article className="summary-item">
-						<span className="summary-label">Tổng sinh viên</span>
-						<strong>{students.length}</strong>
-						<span className="summary-caption">trong danh sách</span>
-					</article>
-					<article className="summary-item average-summary">
-						<span className="summary-label">Điểm trung bình</span>
-						<strong>{average.toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</strong>
-						<span className="summary-caption">trên thang điểm 10</span>
-					</article>
-					<article className="summary-item">
-						<span className="summary-label">Sinh viên giỏi</span>
-						<strong>{students.filter(({ score: studentScore }) => studentScore >= 8).length}</strong>
-						<span className="summary-caption">điểm từ 8 trở lên</span>
-					</article>
-					<article className="summary-item">
-						<span className="summary-label">Sinh viên xuất sắc</span>
-						<strong>{students.filter(({ score: studentScore }) => studentScore > 9).length}</strong>
-						<span className="summary-caption">điểm trên 9</span>
-					</article>
-				</section>
+  const selectedProduct =
+    route.page === 'detail'
+      ? products?.find((product) => String(product.id) === route.id)
+      : null;
 
-				<section className="content-grid">
-					<section className="roster-panel" aria-labelledby="roster-title">
-						<div className="panel-heading">
-							<div>
-								<p className="section-kicker">DANH SÁCH LỚP</p>
-								<h2 id="roster-title">Sinh viên <span className="count-chip">{filteredStudents.length}</span></h2>
-							</div>
-						</div>
-						<div className="filter-row" role="group" aria-label="Lọc danh sách sinh viên">
-							{filters.map(({ value, label }) => (
-								<button
-									className={`filter-button ${filter === value ? 'active' : ''}`}
-									key={value}
-									type="button"
-									aria-pressed={filter === value}
-									onClick={() => setFilter(value)}
-								>
-									{label}
-								</button>
-							))}
-						</div>
-						<StudentList students={filteredStudents} onDelete={handleDelete} />
-						<p className="table-footnote">Hiển thị {filteredStudents.length} / {students.length} sinh viên</p>
-					</section>
+  const updateQuantity = (productId, amount) => {
+    setProducts((currentProducts) =>
+      currentProducts.map((product) =>
+        product.id === productId
+          ? { ...product, quantity: Math.max(0, product.quantity + amount) }
+          : product,
+      ),
+    );
+  };
 
-					<aside className="form-panel" aria-labelledby="form-title">
-						<div className="form-heading">
-							<span className="form-icon" aria-hidden="true">+</span>
-							<div>
-								<p className="section-kicker">HỒ SƠ MỚI</p>
-								<h2 id="form-title">Thêm sinh viên</h2>
-							</div>
-						</div>
-						<form onSubmit={handleAdd} noValidate>
-							<label htmlFor="student-name">Họ và tên</label>
-							<input
-								id="student-name"
-								type="text"
-								placeholder="Ví dụ: Nguyễn Minh Anh"
-								value={name}
-								onChange={(event) => setName(event.target.value)}
-							/>
-							<div className="field-pair">
-								<div>
-									<label htmlFor="student-score">Điểm số</label>
-									<input
-										id="student-score"
-										type="number"
-										min="0"
-										max="10"
-										step="0.1"
-										placeholder="0 — 10"
-										value={score}
-										onChange={(event) => setScore(event.target.value)}
-									/>
-								</div>
-								<div>
-									<label htmlFor="student-class">Lớp</label>
-									<input
-										id="student-class"
-										type="text"
-										placeholder="Ví dụ: 12A1"
-										value={studentClass}
-										onChange={(event) => setStudentClass(event.target.value)}
-									/>
-								</div>
-							</div>
-							{error && <p className="form-error" role="alert">{error}</p>}
-							<button className="submit-button" type="submit">Thêm vào danh sách <span aria-hidden="true">→</span></button>
-						</form>
-						<p className="form-hint">Điểm hợp lệ nằm trong khoảng từ 0 đến 10.</p>
-					</aside>
-				</section>
-				<footer className="page-footer">SỔ ĐIỂM <span>·</span> QUẢN LÝ KẾT QUẢ HỌC TẬP</footer>
-			</div>
-		</main>
-	);
-};
+  const deleteProduct = (productId) => {
+    setProducts((currentProducts) =>
+      currentProducts.filter((product) => product.id !== productId),
+    );
+  };
+
+  const handleFormChange = (event) => {
+    const { name, value } = event.target;
+    setForm((currentForm) => ({ ...currentForm, [name]: value }));
+    setFormError('');
+  };
+
+  const addProduct = (event) => {
+    event.preventDefault();
+    const name = form.name.trim();
+    const price = Number(form.price);
+    const quantity = Number(form.quantity);
+
+    if (!name || form.price === '' || form.quantity === '') {
+      setFormError('Vui lòng nhập đầy đủ thông tin.');
+      return;
+    }
+    if (!Number.isFinite(price) || price < 0 || !Number.isInteger(quantity) || quantity < 0) {
+      setFormError('Giá phải từ 0 trở lên và số lượng phải là số nguyên không âm.');
+      return;
+    }
+
+    const newProduct = {
+      id: products.reduce((highestId, product) => Math.max(highestId, product.id), 0) + 1,
+      name,
+      category: form.category,
+      price,
+      quantity,
+    };
+
+    setProducts((currentProducts) => [...currentProducts, newProduct]);
+    setForm({ name: '', category: CATEGORIES[0], price: '', quantity: '' });
+    setFormError('');
+    navigate('/products', true);
+    navigate(`/products/${newProduct.id}`);
+  };
+
+  const goBack = () => {
+    if (window.history.state?.inventoryApp && window.history.length > 1) {
+      window.history.back();
+    } else {
+      navigate('/products');
+    }
+  };
+
+  const renderLoadingOrError = () => {
+    if (loadError) {
+      return <p className="notice notice-error">Không tải được dữ liệu.</p>;
+    }
+    if (!products) {
+      return <p className="notice">Đang tải...</p>;
+    }
+    return null;
+  };
+
+  return (
+    <div className="app-shell">
+      <header className="topbar">
+        <div className="topbar-inner">
+          <a className="brand" href="/" onClick={(event) => {
+            event.preventDefault();
+            navigate('/');
+          }}>
+            <span className="brand-mark" aria-hidden="true">K</span>
+            <span>Kho hàng</span>
+          </a>
+          <nav className="main-nav" aria-label="Điều hướng chính">
+            {[
+              { path: '/', label: 'Trang chủ', page: 'home' },
+              { path: '/products', label: 'Danh sách', page: 'products' },
+              { path: '/products/new', label: 'Thêm mới', page: 'new' },
+            ].map((item) => (
+              <a
+                key={item.path}
+                href={item.path}
+                className={route.page === item.page ? 'nav-link active' : 'nav-link'}
+                aria-current={route.page === item.page ? 'page' : undefined}
+                onClick={(event) => {
+                  event.preventDefault();
+                  navigate(item.path);
+                }}
+              >
+                {item.label}
+              </a>
+            ))}
+          </nav>
+        </div>
+      </header>
+
+      <main className="page-content">
+        {route.page === 'home' && (
+          <section>
+            <div className="page-heading">
+              <div>
+                <p className="eyebrow">TỔNG QUAN</p>
+                <h1>Kho hàng</h1>
+                <p className="page-description">Theo dõi nhanh tình hình hàng hóa của cửa hàng.</p>
+              </div>
+              <button className="button button-primary" onClick={() => navigate('/products/new')}>
+                + Thêm sản phẩm
+              </button>
+            </div>
+            {renderLoadingOrError()}
+            {products && (
+              <div className="stats-grid">
+                <article className="stat-card">
+                  <span className="stat-label">Tổng số sản phẩm</span>
+                  <strong>{products.length}</strong>
+                  <span className="stat-caption">mặt hàng trong kho</span>
+                </article>
+                <article className="stat-card stat-warning">
+                  <span className="stat-label">Sắp hết hàng</span>
+                  <strong>{products.filter((product) => product.quantity < 5).length}</strong>
+                  <span className="stat-caption">sản phẩm có tồn kho dưới 5</span>
+                </article>
+                <article className="stat-card stat-value">
+                  <span className="stat-label">Tổng giá trị kho</span>
+                  <strong>
+                    {formatCurrency(
+                      products.reduce(
+                        (total, product) => total + product.price * product.quantity,
+                        0,
+                      ),
+                    )}
+                  </strong>
+                  <span className="stat-caption">giá bán × số lượng tồn</span>
+                </article>
+              </div>
+            )}
+            <section className="welcome-card">
+              <div>
+                <h2>Quản lý hàng hóa thật đơn giản</h2>
+                <p>Tìm sản phẩm, cập nhật số lượng hoặc xem thông tin chi tiết trong danh sách.</p>
+              </div>
+              <button className="button button-secondary" onClick={() => navigate('/products')}>
+                Xem danh sách
+              </button>
+            </section>
+          </section>
+        )}
+
+        {route.page === 'products' && (
+          <section>
+            <div className="page-heading">
+              <div>
+                <p className="eyebrow">QUẢN LÝ HÀNG HÓA</p>
+                <h1>Danh sách sản phẩm</h1>
+                <p className="page-description">Tìm kiếm, lọc và cập nhật tồn kho.</p>
+              </div>
+              <button className="button button-primary" onClick={() => navigate('/products/new')}>
+                + Thêm sản phẩm
+              </button>
+            </div>
+            {renderLoadingOrError()}
+            {products && (
+              <>
+                <div className="filter-bar">
+                  <label className="field search-field">
+                    <span>Tìm kiếm</span>
+                    <input
+                      type="search"
+                      placeholder="Nhập tên sản phẩm..."
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                    />
+                  </label>
+                  <label className="field category-field">
+                    <span>Danh mục</span>
+                    <select
+                      value={categoryFilter}
+                      onChange={(event) => setCategoryFilter(event.target.value)}
+                    >
+                      <option>Tất cả</option>
+                      {CATEGORIES.map((category) => <option key={category}>{category}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <p className="result-count">
+                  Tìm thấy <strong>{visibleProducts.length}</strong> sản phẩm
+                </p>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Tên sản phẩm</th>
+                        <th>Danh mục</th>
+                        <th>Giá</th>
+                        <th>Tồn kho</th>
+                        <th>Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleProducts.map((product) => (
+                        <tr key={product.id}>
+                          <td>
+                            <a
+                              className="product-link"
+                              href={`/products/${product.id}`}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                navigate(`/products/${product.id}`);
+                              }}
+                            >
+                              {product.name}
+                            </a>
+                          </td>
+                          <td><span className="category-badge">{product.category}</span></td>
+                          <td>{formatCurrency(product.price)}</td>
+                          <td>
+                            <span className={product.quantity < 5 ? 'stock low-stock' : 'stock'}>
+                              {product.quantity}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="row-actions">
+                              <button
+                                className="icon-button"
+                                aria-label={`Giảm tồn kho ${product.name}`}
+                                disabled={product.quantity === 0}
+                                onClick={() => updateQuantity(product.id, -1)}
+                              >
+                                −
+                              </button>
+                              <button
+                                className="icon-button"
+                                aria-label={`Tăng tồn kho ${product.name}`}
+                                onClick={() => updateQuantity(product.id, 1)}
+                              >
+                                +
+                              </button>
+                              <button
+                                className="delete-button"
+                                onClick={() => deleteProduct(product.id)}
+                              >
+                                Xóa
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {visibleProducts.length === 0 && (
+                        <tr>
+                          <td className="empty-cell" colSpan="5">Không có dữ liệu.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </section>
+        )}
+
+        {route.page === 'new' && (
+          <section className="form-page">
+            <div className="page-heading">
+              <div>
+                <p className="eyebrow">QUẢN LÝ HÀNG HÓA</p>
+                <h1>Thêm sản phẩm mới</h1>
+                <p className="page-description">Điền thông tin bên dưới để thêm vào kho.</p>
+              </div>
+            </div>
+            {renderLoadingOrError()}
+            {products && (
+              <form className="product-form" onSubmit={addProduct} noValidate>
+                <label className="field">
+                  <span>Tên sản phẩm</span>
+                  <input name="name" value={form.name} onChange={handleFormChange} />
+                </label>
+                <label className="field">
+                  <span>Danh mục</span>
+                  <select name="category" value={form.category} onChange={handleFormChange}>
+                    {CATEGORIES.map((category) => <option key={category}>{category}</option>)}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Giá (đ)</span>
+                  <input
+                    name="price"
+                    type="number"
+                    min="0"
+                    value={form.price}
+                    onChange={handleFormChange}
+                  />
+                </label>
+                <label className="field">
+                  <span>Số lượng tồn</span>
+                  <input
+                    name="quantity"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.quantity}
+                    onChange={handleFormChange}
+                  />
+                </label>
+                {formError && <p className="form-error" role="alert">{formError}</p>}
+                <div className="form-actions">
+                  <button className="button button-secondary" type="button" onClick={goBack}>
+                    Quay lại
+                  </button>
+                  <button className="button button-primary" type="submit">Thêm</button>
+                </div>
+              </form>
+            )}
+          </section>
+        )}
+
+        {route.page === 'detail' && (
+          <section>
+            <button className="back-link" onClick={goBack}>← Quay lại</button>
+            {renderLoadingOrError()}
+            {products && selectedProduct && (
+              <article className="detail-card">
+                <p className="eyebrow">CHI TIẾT SẢN PHẨM</p>
+                <h1>{selectedProduct.name}</h1>
+                <dl className="detail-list">
+                  <div><dt>Tên sản phẩm</dt><dd>{selectedProduct.name}</dd></div>
+                  <div><dt>Danh mục</dt><dd>{selectedProduct.category}</dd></div>
+                  <div><dt>Giá</dt><dd>{formatCurrency(selectedProduct.price)}</dd></div>
+                  <div>
+                    <dt>Tồn kho</dt>
+                    <dd className={selectedProduct.quantity < 5 ? 'low-stock' : ''}>
+                      {selectedProduct.quantity}
+                    </dd>
+                  </div>
+                </dl>
+              </article>
+            )}
+            {products && !selectedProduct && (
+              <p className="notice notice-error">Không tìm thấy sản phẩm.</p>
+            )}
+          </section>
+        )}
+
+        {route.page === 'not-found' && (
+          <section className="not-found">
+            <h1>Không tìm thấy trang</h1>
+            <button className="button button-secondary" onClick={() => navigate('/')}>
+              Về trang chủ
+            </button>
+          </section>
+        )}
+      </main>
+    </div>
+  );
+}
 
 export default App;
