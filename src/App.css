@@ -33,7 +33,7 @@
   border: 1px solid #f4c96a;
   border-radius: 50%;
   color: #f4c96a;
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: 26px;
   font-weight: 700;
   box-shadow: 0 0 18px rgba(244, 201, 106, 0.13), inset 0 0 15px rgba(244, 201, 106, 0.08);
@@ -213,7 +213,7 @@
 .hero-copy h1 {
   margin: 26px 0 20px;
   color: #f4f6fb;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-display);
   font-size: clamp(58px, 8vw, 96px);
   font-weight: 700;
   letter-spacing: -0.055em;
@@ -278,7 +278,7 @@
 
 .hero-stats strong {
   color: #f0c45e;
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: 22px;
 }
 
@@ -375,7 +375,7 @@
 
 .prize-core span {
   color: #f7d27b;
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: clamp(80px, 15vw, 170px);
   font-weight: 700;
   text-shadow: 0 0 35px rgba(247, 210, 123, 0.33);
@@ -427,7 +427,7 @@
 .placeholder-card h1 {
   margin: 11px 0 7px;
   color: #f2f4f8;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-display);
   font-size: clamp(27px, 4vw, 38px);
   letter-spacing: -0.035em;
 }
@@ -448,7 +448,7 @@
   border: 1px solid rgba(240, 196, 94, 0.25);
   border-radius: 50%;
   color: #d6b55e;
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: 24px;
 }
 
@@ -795,7 +795,7 @@
 .not-found-code {
   margin-top: 17px;
   color: rgba(240, 196, 94, 0.14);
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: clamp(75px, 13vw, 130px);
   font-weight: 700;
   line-height: 1;
@@ -992,7 +992,7 @@
   align-items: center;
   margin: 18px 0 24px;
   color: #f2f4f8;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-display);
   font-size: clamp(22px, 3vw, 30px);
   letter-spacing: -0.025em;
   line-height: 1.4;
@@ -1124,7 +1124,7 @@
   opacity: 0.68;
 }
 
-.lifeline-icon { font-family: Georgia, serif; font-size: 16px; }
+.lifeline-icon { font-family: var(--font-display); font-size: 16px; }
 
 .audience-chart {
   display: grid;
@@ -1323,7 +1323,7 @@
   border-radius: 50%;
   background: rgba(240, 196, 94, 0.08);
   color: #f2ce72;
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: 32px;
   box-shadow: 0 0 32px rgba(240, 196, 94, 0.12);
 }
@@ -1333,7 +1333,7 @@
 .result-card h1 {
   margin: 12px 0 5px;
   color: #f3f4f8;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-display);
   font-size: clamp(29px, 5vw, 42px);
 }
 
@@ -1363,7 +1363,7 @@
 
 .result-prize strong {
   color: #f3cf75;
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: clamp(25px, 5vw, 36px);
   font-variant-numeric: tabular-nums;
 }
@@ -1450,7 +1450,7 @@
 
 .history-stats strong {
   color: #f0ca70;
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: clamp(15px, 2vw, 21px);
   font-variant-numeric: tabular-nums;
 }
@@ -1512,7 +1512,7 @@
 .history-empty h2 {
   margin: 14px 0 6px;
   color: #e9edf4;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-display);
   font-size: 23px;
 }
 
