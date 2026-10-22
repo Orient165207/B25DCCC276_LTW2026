@@ -4,7 +4,20 @@ import { Link, Navigate, NavLink, Outlet, Route, Routes, useLocation, useNavigat
 import { LETTERS, LEVELS, MILESTONES, PRIZES, TIME_PER_QUESTION, formatMoney } from './data'
 import './App.css'
 
-function Layout({ questions, loading }) {
+const HISTORY_STORAGE_KEY = 'ltw_trieuphu_history'
+const PAGE_TITLE = 'Ai là triệu phú'
+const shuffle = (items) => {
+  const shuffled = [...items]
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1))
+    const currentItem = shuffled[index]
+    shuffled[index] = shuffled[swapIndex]
+    shuffled[swapIndex] = currentItem
+  }
+  return shuffled
+}
+
+const Layout = ({ questions, loading }) => {
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -49,10 +62,11 @@ function Layout({ questions, loading }) {
   )
 }
 
-function HomePage({ playerName, setPlayerName }) {
+const HomePage = ({ playerName, setPlayerName, history }) => {
   const navigate = useNavigate()
+  const bestRecord = history.reduce((best, record) => record.prize > (best?.prize ?? -1) ? record : best, null)
 
-  function startGame(event) {
+  const startGame = (event) => {
     event.preventDefault()
     if (!playerName.trim()) return
     navigate('/play')
@@ -88,6 +102,12 @@ function HomePage({ playerName, setPlayerName }) {
           <div><strong>03</strong><span>CẤP ĐỘ</span></div>
           <div><strong>250M</strong><span>GIẢI THƯỞNG CAO NHẤT</span></div>
         </div>
+        {bestRecord && (
+          <div className="home-record">
+            <span>♛</span>
+            <div><small>KỶ LỤC NGƯỜI CHƠI</small><strong>{formatMoney(bestRecord.prize)} <em>— {bestRecord.name}</em></strong></div>
+          </div>
+        )}
       </div>
       <div className="hero-art" aria-hidden="true">
         <div className="art-glow" />
@@ -101,7 +121,7 @@ function HomePage({ playerName, setPlayerName }) {
   )
 }
 
-function AnswerButton({ answer, index, status, selectedAnswer, correctAnswer, onSelect }) {
+const AnswerButton = ({ answer, index, status, selectedAnswer, correctAnswer, onSelect, hidden }) => {
   const isSelected = selectedAnswer === index
   const isRevealed = status === 'revealed'
   let answerState = ''
@@ -112,19 +132,19 @@ function AnswerButton({ answer, index, status, selectedAnswer, correctAnswer, on
 
   return (
     <button
-      className={`game-answer${answerState}`}
+      className={`game-answer${hidden ? ' game-answer-hidden' : ''}${answerState}`}
       type="button"
       onClick={() => onSelect(index)}
-      disabled={status !== 'answering'}
+      disabled={status !== 'answering' || hidden}
     >
-      <span className="game-answer-letter">{LETTERS[index]}</span>
-      <span>{answer}</span>
+      <span className="game-answer-letter">{hidden ? '' : LETTERS[index]}</span>
+      <span>{hidden ? '' : answer}</span>
       {isRevealed && index === correctAnswer && <span className="answer-check" aria-label="Đáp án đúng">✓</span>}
     </button>
   )
 }
 
-function QuestionCard({ question, questionNumber, status, selectedAnswer, onSelect }) {
+const QuestionCard = ({ question, questionNumber, status, selectedAnswer, onSelect, hiddenOptions, isAnswering, lifelines }) => {
   return (
     <section className="game-question-card">
       <div className="game-question-heading">
@@ -142,14 +162,16 @@ function QuestionCard({ question, questionNumber, status, selectedAnswer, onSele
             selectedAnswer={selectedAnswer}
             correctAnswer={question.answer}
             onSelect={onSelect}
+            hidden={hiddenOptions.includes(index)}
           />
         ))}
       </div>
+      {isAnswering && <Lifelines {...lifelines} />}
     </section>
   )
 }
 
-function Timer({ seconds }) {
+const Timer = ({ seconds }) => {
   const urgent = seconds <= 10
   return (
     <div className={`game-timer${urgent ? ' timer-urgent' : ''}`} role="timer" aria-label={`Còn ${seconds} giây`}>
@@ -160,7 +182,7 @@ function Timer({ seconds }) {
   )
 }
 
-function MoneyLadder({ currentQuestion }) {
+const MoneyLadder = ({ currentQuestion }) => {
   return (
     <aside className="money-ladder" aria-label="Thang tiền thưởng">
       <div className="ladder-heading"><span>✦</span> THANG TIỀN THƯỞNG</div>
@@ -186,7 +208,7 @@ function MoneyLadder({ currentQuestion }) {
   )
 }
 
-function getPrize(correctCount, reason) {
+const getPrize = (correctCount, reason) => {
   if (reason === 'quit') return correctCount > 0 ? PRIZES[correctCount - 1] : 0
 
   const passedMilestones = MILESTONES.filter((milestone) => milestone <= correctCount)
@@ -194,7 +216,31 @@ function getPrize(correctCount, reason) {
   return PRIZES[passedMilestones[passedMilestones.length - 1] - 1]
 }
 
-function PlayPage({ questions, loading, error, playerName }) {
+const makeAudienceChart = (correctAnswer, hiddenOptions) => {
+  const percentages = [0, 0, 0, 0]
+  const visibleWrongOptions = [0, 1, 2, 3].filter((index) => index !== correctAnswer && !hiddenOptions.includes(index))
+  const correctPercentage = Math.floor(Math.random() * 31) + 40
+  percentages[correctAnswer] = correctPercentage
+
+  const remaining = 100 - correctPercentage
+  const weights = visibleWrongOptions.map(() => Math.random())
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0)
+  const allocated = visibleWrongOptions.map((index, position) => {
+    const value = totalWeight === 0 ? remaining / visibleWrongOptions.length : (remaining * weights[position]) / totalWeight
+    const share = Math.floor(value)
+    percentages[index] = share
+    return { index, remainder: value - share }
+  })
+  const unallocated = remaining - allocated.reduce((sum, share) => sum + percentages[share.index], 0)
+  allocated.sort((left, right) => right.remainder - left.remainder)
+  for (let index = 0; index < unallocated; index += 1) {
+    percentages[allocated[index % allocated.length].index] += 1
+  }
+
+  return percentages
+}
+
+const PlayPage = ({ questions, loading, error, playerName, onGameFinish }) => {
   const navigate = useNavigate()
   const [questionIndex, setQuestionIndex] = useState(0)
   const [remainingSeconds, setRemainingSeconds] = useState(TIME_PER_QUESTION)
@@ -203,22 +249,33 @@ function PlayPage({ questions, loading, error, playerName }) {
   const [selectedAnswer, setSelectedAnswer] = useState(null)
   const [status, setStatus] = useState('answering')
   const [endReason, setEndReason] = useState('')
+  const [usedLifelines, setUsedLifelines] = useState({ fiftyFifty: false, audience: false })
+  const [hiddenOptions, setHiddenOptions] = useState([])
+  const [audienceResults, setAudienceResults] = useState(null)
   const question = questions[questionIndex]
   const hasQuestion = Boolean(question)
   const correctAnswer = question?.answer
   const questionNumber = questionIndex + 1
 
   const finishGame = useCallback((reason, totalCorrect) => {
+    const record = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: playerName,
+      prize: reason === 'won' ? PRIZES[PRIZES.length - 1] : getPrize(totalCorrect, reason),
+      correctCount: totalCorrect,
+      playedAt: new Date().toLocaleString('vi-VN'),
+    }
+    onGameFinish(record)
     navigate('/result', {
       replace: true,
       state: {
-        playerName,
+        playerName: record.name,
         correctCount: totalCorrect,
-        prize: reason === 'won' ? PRIZES[PRIZES.length - 1] : getPrize(totalCorrect, reason),
+        prize: record.prize,
         reason,
       },
     })
-  }, [navigate, playerName])
+  }, [navigate, onGameFinish, playerName])
 
   useEffect(() => {
     if (status !== 'answering' || !hasQuestion) return undefined
@@ -268,6 +325,9 @@ function PlayPage({ questions, loading, error, playerName }) {
       setCorrectCount(nextCorrectCount)
       setQuestionIndex((index) => index + 1)
       setSelectedAnswer(null)
+      setUsedLifelines({ fiftyFifty: false, audience: false })
+      setHiddenOptions([])
+      setAudienceResults(null)
       remainingSecondsRef.current = TIME_PER_QUESTION
       setRemainingSeconds(TIME_PER_QUESTION)
       setStatus('answering')
@@ -276,11 +336,52 @@ function PlayPage({ questions, loading, error, playerName }) {
     return () => window.clearTimeout(resultId)
   }, [correctAnswer, correctCount, endReason, finishGame, hasQuestion, questionIndex, selectedAnswer, status])
 
-  function selectAnswer(index) {
+  const selectAnswer = (index) => {
     if (status !== 'answering') return
+    if (hiddenOptions.includes(index)) return
     setSelectedAnswer(index)
     setStatus('locked')
   }
+
+  const useFiftyFifty = () => {
+    if (status !== 'answering' || usedLifelines.fiftyFifty) return
+    const wrongOptions = [0, 1, 2, 3].filter((index) => index !== question.answer)
+    const hidden = shuffle(wrongOptions).slice(0, 2)
+    setHiddenOptions(hidden)
+    setAudienceResults((currentResults) => currentResults ? makeAudienceChart(question.answer, hidden) : currentResults)
+    setUsedLifelines((current) => ({ ...current, fiftyFifty: true }))
+  }
+
+  const askAudience = () => {
+    if (status !== 'answering' || usedLifelines.audience) return
+    setAudienceResults(makeAudienceChart(question.answer, hiddenOptions))
+    setUsedLifelines((current) => ({ ...current, audience: true }))
+  }
+
+  const quitGame = () => {
+    if (status === 'answering') finishGame('quit', correctCount)
+  }
+
+  useEffect(() => {
+    if (status !== 'answering' || !hasQuestion) return undefined
+    const handleKeyDown = (event) => {
+      const answerIndex = LETTERS.indexOf(event.key.toUpperCase())
+      if (answerIndex === -1 || hiddenOptions.includes(answerIndex)) return
+      event.preventDefault()
+      setSelectedAnswer(answerIndex)
+      setStatus('locked')
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [hasQuestion, hiddenOptions, status])
+
+  useEffect(() => {
+    if (!hasQuestion || !playerName.trim()) return undefined
+    document.title = `Câu ${questionNumber}/15 - ${playerName}`
+    return () => {
+      document.title = PAGE_TITLE
+    }
+  }, [hasQuestion, playerName, questionNumber])
 
   if (!playerName.trim()) return <Navigate to="/" replace />
   if (loading) return <div className="state-message" role="status"><span className="loader" /> Đang tải câu hỏi...</div>
@@ -301,12 +402,24 @@ function PlayPage({ questions, loading, error, playerName }) {
             status={status}
             selectedAnswer={selectedAnswer}
             onSelect={selectAnswer}
+            hiddenOptions={hiddenOptions}
+            isAnswering={status === 'answering'}
+            lifelines={{
+              useFiftyFifty,
+              askAudience,
+              quitGame,
+              usedLifelines,
+            }}
           />
+          {audienceResults && status === 'answering' && <AudienceChart percentages={audienceResults} />}
           <p className={`game-status game-status-${status}`} aria-live="polite">
-            {status === 'answering' && 'Hãy chọn một đáp án.'}
+            {status === 'answering' && 'Chọn một đáp án hoặc nhấn phím A, B, C, D.'}
             {status === 'locked' && 'Đáp án đã được chốt...'}
             {status === 'revealed' && (endReason === 'timeout' ? 'Hết giờ!' : selectedAnswer === question.answer ? 'Chính xác!' : 'Rất tiếc, bạn đã trả lời sai.')}
           </p>
+          {status === 'answering' && (
+            <button className="quit-game-button" type="button" onClick={quitGame}>Dừng cuộc chơi</button>
+          )}
         </div>
         <MoneyLadder currentQuestion={questionNumber} />
       </div>
@@ -314,7 +427,139 @@ function PlayPage({ questions, loading, error, playerName }) {
   )
 }
 
-function ResultPage() {
+const Lifelines = ({ useFiftyFifty, askAudience, usedLifelines }) => (
+  <div className="lifelines" aria-label="Quyền trợ giúp">
+    <span className="lifelines-label">QUYỀN TRỢ GIÚP</span>
+    <button
+      className="lifeline-button"
+      type="button"
+      onClick={useFiftyFifty}
+      disabled={usedLifelines.fiftyFifty}
+      aria-label="50:50"
+    >
+      <span className="lifeline-icon">½</span>
+      <span>50:50</span>
+    </button>
+    <button
+      className="lifeline-button"
+      type="button"
+      onClick={askAudience}
+      disabled={usedLifelines.audience}
+      aria-label="Hỏi khán giả"
+    >
+      <span className="lifeline-icon">▥</span>
+      <span>Hỏi khán giả</span>
+    </button>
+  </div>
+)
+
+const AudienceChart = ({ percentages }) => (
+  <section className="audience-chart" aria-label="Biểu đồ kết quả hỏi khán giả">
+    <div className="audience-chart-heading"><span>▥</span> KHÁN GIẢ BÌNH CHỌN</div>
+    {percentages.map((percentage, index) => (
+      <div className="audience-row" key={LETTERS[index]}>
+        <strong>{LETTERS[index]}</strong>
+        <div className="audience-track">
+          <div className="audience-bar" style={{ width: `${percentage}%` }} />
+        </div>
+        <span>{LETTERS[index]}: {percentage}%</span>
+      </div>
+    ))}
+  </section>
+)
+
+const readSavedHistory = () => {
+  try {
+    const savedHistory = window.localStorage.getItem(HISTORY_STORAGE_KEY)
+    if (!savedHistory) return { entries: [], error: '' }
+    const entries = JSON.parse(savedHistory)
+    const hasValidRecords = Array.isArray(entries) && entries.every((record) => (
+      record
+      && typeof record.id === 'string'
+      && typeof record.name === 'string'
+      && Number.isFinite(record.prize)
+      && Number.isInteger(record.correctCount)
+      && typeof record.playedAt === 'string'
+    ))
+    if (!hasValidRecords) throw new Error('Dữ liệu lịch sử không đúng định dạng.')
+    return { entries, error: '' }
+  } catch (storageError) {
+    console.error('Không thể đọc lịch sử chơi từ localStorage.', storageError)
+    return { entries: [], error: 'Không thể đọc lịch sử đã lưu. Hãy xóa dữ liệu lịch sử để tạo mới.' }
+  }
+}
+
+const HistoryPage = ({ history, historyError, onClearHistory }) => {
+  const sortedHistory = [...history].sort((first, second) => second.prize - first.prize)
+  const totalPrize = history.reduce((total, record) => total + record.prize, 0)
+  const totalCorrect = history.reduce((total, record) => total + record.correctCount, 0)
+  const bestPrize = history.reduce((best, record) => Math.max(best, record.prize), 0)
+
+  return (
+    <section className="content-section history-section">
+      <div className="page-heading">
+        <div>
+          <span className="eyebrow">HÀNH TRÌNH CHINH PHỤC</span>
+          <h1>Lịch sử các lượt chơi</h1>
+          <p>Mỗi lượt chơi là một dấu mốc trên hành trình trở thành triệu phú.</p>
+        </div>
+        <div className="heading-emblem" aria-hidden="true">◷</div>
+      </div>
+
+      {historyError && (
+        <div className="history-error" role="alert">
+          <span>{historyError}</span>
+          <button className="clear-history-button" type="button" onClick={onClearHistory}>Xóa dữ liệu lỗi</button>
+        </div>
+      )}
+      {history.length > 0 && (
+        <>
+          <div className="history-stats">
+            <div><span>LƯỢT CHƠI</span><strong>{history.length}</strong></div>
+            <div><span>SỐ CÂU ĐÚNG</span><strong>{totalCorrect}</strong></div>
+            <div><span>KỶ LỤC CAO NHẤT</span><strong>{formatMoney(bestPrize)}</strong></div>
+            <div><span>TỔNG TIỀN THƯỞNG</span><strong>{formatMoney(totalPrize)}</strong></div>
+          </div>
+
+          <div className="question-panel history-panel">
+            <div className="history-panel-heading">
+              <span>BẢNG XẾP HẠNG · SẮP XẾP THEO TIỀN THƯỞNG</span>
+              <button className="clear-history-button" type="button" onClick={onClearHistory}>Xóa lịch sử</button>
+            </div>
+            <div className="table-scroll">
+              <table className="question-table history-table">
+                <thead>
+                  <tr><th>#</th><th>NGƯỜI CHƠI</th><th>SỐ CÂU ĐÚNG</th><th>TIỀN THƯỞNG</th><th>THỜI GIAN</th></tr>
+                </thead>
+                <tbody>
+                  {sortedHistory.map((record, index) => (
+                    <tr key={record.id}>
+                      <td className="question-number">{String(index + 1).padStart(2, '0')}</td>
+                      <td className="history-player">{record.name}</td>
+                      <td>{record.correctCount} / 15</td>
+                      <td className="history-prize">{formatMoney(record.prize)}</td>
+                      <td>{record.playedAt}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+      {history.length === 0 && !historyError && (
+        <div className="history-empty">
+          <span>◷</span>
+          <h2>Chưa có lượt chơi nào</h2>
+          <p>Hãy bắt đầu thử thách đầu tiên và thành tích của bạn sẽ xuất hiện tại đây.</p>
+          <Link className="secondary-button" to="/">Bắt đầu chơi <span>→</span></Link>
+        </div>
+      )}
+    </section>
+  )
+}
+
+const ResultPage = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const result = location.state
@@ -355,7 +600,7 @@ function ResultPage() {
   )
 }
 
-function QuestionsPage({ questions, loading, error }) {
+const QuestionsPage = ({ questions, loading, error }) => {
   const [level, setLevel] = useState('all')
   const [search, setSearch] = useState('')
   const filteredQuestions = useMemo(() => {
@@ -440,7 +685,7 @@ function QuestionsPage({ questions, loading, error }) {
   )
 }
 
-function QuestionDetailPage({ questions, loading, error }) {
+const QuestionDetailPage = ({ questions, loading, error }) => {
   const { id } = useParams()
   const navigate = useNavigate()
   const questionId = Number(id)
@@ -478,19 +723,7 @@ function QuestionDetailPage({ questions, loading, error }) {
   )
 }
 
-function PlaceholderPage({ title, eyebrow }) {
-  return (
-    <section className="placeholder-card">
-      <span className="eyebrow">{eyebrow}</span>
-      <div className="placeholder-icon">✦</div>
-      <h1>{title}</h1>
-      <p>Mục này sẽ được hoàn thiện trong các phần tiếp theo của bài thực hành.</p>
-      <Link className="secondary-button" to="/questions">Đến ngân hàng câu hỏi <span>→</span></Link>
-    </section>
-  )
-}
-
-function NotFoundPage({ message = '404 — Không tìm thấy trang' }) {
+const NotFoundPage = ({ message = '404 — Không tìm thấy trang' }) => {
   return (
     <section className="placeholder-card not-found-card">
       <span className="eyebrow">ÔI, CÓ VẺ BẠN ĐI LẠC</span>
@@ -502,16 +735,43 @@ function NotFoundPage({ message = '404 — Không tìm thấy trang' }) {
   )
 }
 
-export default function App() {
+const App = () => {
   const [questions, setQuestions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [playerName, setPlayerName] = useState('')
+  const [savedHistory] = useState(readSavedHistory)
+  const [history, setHistory] = useState(savedHistory.entries)
+  const [historyError, setHistoryError] = useState(savedHistory.error)
+
+  useEffect(() => {
+    if (historyError) return
+    try {
+      window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history))
+    } catch (storageError) {
+      console.error('Không thể lưu lịch sử chơi vào localStorage.', storageError)
+    }
+  }, [history, historyError])
+
+  const onGameFinish = useCallback((record) => {
+    setHistory((currentHistory) => [...currentHistory, record])
+  }, [])
+
+  const clearHistory = useCallback(() => {
+    try {
+      window.localStorage.removeItem(HISTORY_STORAGE_KEY)
+      setHistory([])
+      setHistoryError('')
+    } catch (storageError) {
+      console.error('Không thể xóa lịch sử chơi khỏi localStorage.', storageError)
+      setHistoryError('Không thể xóa lịch sử chơi trên thiết bị này.')
+    }
+  }, [])
 
   useEffect(() => {
     const controller = new AbortController()
 
-    async function loadQuestions() {
+    const loadQuestions = async () => {
       setLoading(true)
       setError('')
       try {
@@ -532,10 +792,10 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Layout questions={questions} loading={loading} />}>
-        <Route index element={<HomePage playerName={playerName} setPlayerName={setPlayerName} />} />
-        <Route path="play" element={<PlayPage questions={questions} loading={loading} error={error} playerName={playerName} />} />
+        <Route index element={<HomePage playerName={playerName} setPlayerName={setPlayerName} history={history} />} />
+        <Route path="play" element={<PlayPage questions={questions} loading={loading} error={error} playerName={playerName} onGameFinish={onGameFinish} />} />
         <Route path="result" element={<ResultPage />} />
-        <Route path="history" element={<PlaceholderPage title="Lịch sử các lượt chơi" eyebrow="SẮP RA MẮT" />} />
+        <Route path="history" element={<HistoryPage history={history} historyError={historyError} onClearHistory={clearHistory} />} />
         <Route path="questions" element={<QuestionsPage questions={questions} loading={loading} error={error} />} />
         <Route path="questions/:id" element={<QuestionDetailPage questions={questions} loading={loading} error={error} />} />
         <Route path="*" element={<NotFoundPage />} />
@@ -543,3 +803,5 @@ export default function App() {
     </Routes>
   )
 }
+
+export default App
