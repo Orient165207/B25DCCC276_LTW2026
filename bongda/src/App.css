@@ -1,0 +1,128 @@
+/* Theme: class do ThemeProvider gắn vào div.app */
+.app {
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.app.light {
+  background: #ffffff;
+  color: #18212c;
+}
+
+.app.dark {
+  background: #1f2430;
+  color: #e8eaf0;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.app-header {
+  margin-bottom: 16px;
+}
+
+.app-header h1 {
+  margin: 0 0 8px;
+}
+
+section {
+  margin-bottom: 28px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border: 1px solid #ccc;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+th {
+  background: #f0f2f5;
+}
+
+.app.dark th,
+.app.dark td {
+  border-color: #3b4256;
+}
+
+.app.dark th {
+  background: #2a3142;
+}
+
+.app.dark select,
+.app.dark input,
+.app.dark button {
+  background: #2a3142;
+  color: #e8eaf0;
+  border: 1px solid #4a5268;
+  border-radius: 3px;
+}
+
+.app.dark .error {
+  color: #ff8a80;
+}
+
+td input[type='number'] {
+  width: 64px;
+}
+
+.field-inline {
+  margin-bottom: 10px;
+}
+
+.field-inline select {
+  margin-left: 8px;
+}
+
+.match-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+}
+
+.error {
+  margin: 0;
+  color: #c62828;
+  font-size: 0.85rem;
+}
+
+.match-form button {
+  align-self: flex-end;
+}
+
+.goal-result {
+  margin-top: 12px;
+  font-weight: 600;
+}
+
+/* Thông báo ở đầu trang */
+.notice {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  max-width: 90%;
+  padding: 10px 16px;
+  border-radius: 4px;
+  background: #fff3cd;
+  color: #3d3200;
+  border: 1px solid #e0c36a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}

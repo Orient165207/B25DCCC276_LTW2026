@@ -1,0 +1,74 @@
+[
+  {
+    "id": 1,
+    "round": 1,
+    "home": 1,
+    "away": 6,
+    "homeGoals": 3,
+    "awayGoals": 0
+  },
+  {
+    "id": 2,
+    "round": 1,
+    "home": 2,
+    "away": 5,
+    "homeGoals": 1,
+    "awayGoals": 1
+  },
+  {
+    "id": 3,
+    "round": 1,
+    "home": 3,
+    "away": 4,
+    "homeGoals": 2,
+    "awayGoals": 2
+  },
+  {
+    "id": 4,
+    "round": 2,
+    "home": 1,
+    "away": 5,
+    "homeGoals": 2,
+    "awayGoals": 1
+  },
+  {
+    "id": 5,
+    "round": 2,
+    "home": 6,
+    "away": 4,
+    "homeGoals": 0,
+    "awayGoals": 1
+  },
+  {
+    "id": 6,
+    "round": 2,
+    "home": 2,
+    "away": 3,
+    "homeGoals": 3,
+    "awayGoals": 1
+  },
+  {
+    "id": 7,
+    "round": 3,
+    "home": 1,
+    "away": 4,
+    "homeGoals": 1,
+    "awayGoals": 1
+  },
+  {
+    "id": 8,
+    "round": 3,
+    "home": 5,
+    "away": 3,
+    "homeGoals": 2,
+    "awayGoals": 0
+  },
+  {
+    "id": 9,
+    "round": 3,
+    "home": 6,
+    "away": 2,
+    "homeGoals": 1,
+    "awayGoals": 2
+  }
+]
